@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PSE® — Sistema de Métricas Endoscópicas</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700;800&display=swap');
+
+  :root {
+    --purple: #5B2C8D;
+    --purple-light: #7B3FAB;
+    --purple-pale: #EDE7F6;
+    --purple-glow: rgba(91,44,141,0.18);
+    --bg: #0D0A14;
+    --surface: #16101F;
+    --surface2: #1E1630;
+    --border: rgba(91,44,141,0.35);
+    --text: #F0EAF8;
+    --text-muted: #8A7FA0;
+    --green: #2ECC8A;
+    --green-bg: rgba(46,204,138,0.1);
+    --orange: #F59E0B;
+    --orange-bg: rgba(245,158,11,0.1);
+    --red: #EF4444;
+    --red-bg: rgba(239,68,68,0.1);
+    --mono: 'DM Mono', monospace;
+    --sans: 'Sora', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 10% 20%, rgba(91,44,141,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 80%, rgba(91,44,141,0.08) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── LAYOUT ── */
+  .app { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* ── HEADER ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(22,16,31,0.85);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-badge {
+    background: var(--purple);
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.08em;
+  }
+  .logo-title { font-size: 14px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.04em; }
+  .logo-sub { font-size: 11px; color: var(--text-muted); opacity: 0.6; margin-top: 1px; }
+  .header-right { display: flex; align-items: center; gap: 14px; }
+  .session-info {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .session-info span { color: var(--purple-light); }
+
+  /* ── SCREEN SYSTEM ── */
+  .screen { display: none; flex: 1; }
+  .screen.active { display: flex; }
+
+  /* ── SCREEN: SETUP ── */
+  #screen-setup {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    gap: 32px;
+  }
+  .setup-hero { text-align: center; max-width: 560px; }
+  .setup-hero h1 {
+    font-size: 42px; font-weight: 800; line-height: 1.1;
+    background: linear-gradient(135deg, #fff 0%, var(--purple-light) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+  .setup-hero p { font-size: 15px; color: var(--text-muted); line-height: 1.6; }
+
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    width: 100%;
+    max-width: 560px;
+  }
+  .setup-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 20px; color: var(--text); }
+
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.06em; text-transform: uppercase; }
+  .form-group input, .form-group select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--purple-light); }
+  .form-group select option { background: var(--surface2); }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* Camera setup */
+  .camera-preview-wrap {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    aspect-ratio: 16/9;
+    position: relative;
+    margin-bottom: 12px;
+  }
+  #preview-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .camera-placeholder {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px; color: var(--text-muted); font-size: 13px;
+  }
+  .camera-placeholder svg { opacity: 0.4; }
+
+  .camera-controls { display: flex; gap: 8px; }
+  .btn-secondary {
+    flex: 1;
+    padding: 9px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-secondary:hover { border-color: var(--purple-light); background: var(--purple-glow); }
+  .camera-source-select {
+    flex: 2;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 13px;
+    outline: none;
+  }
+  .camera-source-select option { background: var(--surface2); }
+
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    background: var(--purple);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+  .btn-primary:hover { background: var(--purple-light); transform: translateY(-1px); box-shadow: 0 8px 24px var(--purple-glow); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* ── SCREEN: SESSION ── */
+  #screen-session { flex-direction: column; height: calc(100vh - 57px); }
+
+  .session-layout { display: grid; grid-template-columns: 1fr 380px; flex: 1; min-height: 0; }
+
+  /* Left: video + capture */
+  .video-panel {
+    display: flex; flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: #000;
+    position: relative;
+  }
+  #session-video { width: 100%; flex: 1; object-fit: contain; display: block; background: #000; }
+  .video-overlay {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    display: flex; flex-direction: column;
+    justify-content: space-between;
+    padding: 16px;
+  }
+  .video-top-bar {
+    display: flex; justify-content: space-between; align-items: flex-start;
+  }
+  .recording-badge {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(0,0,0,0.7);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    backdrop-filter: blur(8px);
+  }
+  .rec-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--red); animation: blink 1s ease infinite; }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+  .recording-badge.paused .rec-dot { background: var(--orange); animation: none; }
+  .recording-badge.idle .rec-dot { background: var(--text-muted); animation: none; }
+
+  .step-overlay {
+    display: flex; align-items: flex-end;
+    gap: 8px;
+  }
+  .current-step-badge {
+    background: rgba(91,44,141,0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--purple-light);
+    border-radius: 10px;
+    padding: 10px 16px;
+    max-width: 320px;
+  }
+  .step-label { font-size: 10px; color: rgba(255,255,255,0.6); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
+  .step-name { font-size: 14px; font-weight: 700; color: #fff; }
+  .step-desc { font-size: 11px; color: rgba(255,255,255,0.65); margin-top: 3px; line-height: 1.4; }
+
+  .timer-badge {
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    text-align: center;
+    min-width: 100px;
+  }
+  .timer-total { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--text); line-height: 1; }
+  .timer-step { font-family: var(--mono); font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .timer-step span { color: var(--orange); }
+
+  /* Capture bar */
+  .capture-bar {
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(22,16,31,0.95);
+    border-top: 1px solid var(--border);
+  }
+  .btn-capture {
+    flex: 1;
+    padding: 12px;
+    background: var(--purple);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-capture:hover { background: var(--purple-light); }
+  .btn-capture:active { transform: scale(0.97); }
+  .btn-capture.success { background: var(--green); animation: pulse-green 0.3s ease; }
+  @keyframes pulse-green { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+  .btn-capture kbd {
+    font-family: var(--mono); font-size: 11px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 3px; padding: 1px 5px;
+  }
+  .btn-finish-session {
+    padding: 12px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-finish-session:hover { border-color: var(--red); color: var(--red); }
+
+  /* Right panel: steps + captures */
+  .right-panel {
+    display: flex; flex-direction: column;
+    background: var(--surface);
+    overflow: hidden;
+  }
+
+  .panel-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .panel-tab {
+    flex: 1; padding: 12px;
+    text-align: center;
+    font-size: 12px; font-weight: 700;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: none; border-left: none; border-right: none; border-top: none;
+  }
+  .panel-tab.active { color: var(--purple-light); border-bottom-color: var(--purple-light); }
+  .panel-tab:hover:not(.active) { color: var(--text); }
+
+  .panel-content { flex: 1; overflow-y: auto; }
+  .tab-pane { display: none; padding: 16px; }
+  .tab-pane.active { display: block; }
+
+  /* Steps list */
+  .steps-list { display: flex; flex-direction: column; gap: 4px; }
+  .step-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .step-item.pending { opacity: 0.45; }
+  .step-item.current {
+    background: var(--purple-glow);
+    border-color: var(--purple);
+  }
+  .step-item.done {
+    background: var(--green-bg);
+    border-color: rgba(46,204,138,0.25);
+  }
+  .step-num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+  .step-item.current .step-num { background: var(--purple); border-color: var(--purple); color: #fff; }
+  .step-item.done .step-num { background: var(--green); border-color: var(--green); color: #fff; }
+  .step-info { flex: 1; min-width: 0; }
+  .step-info-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .step-info-region { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .step-time {
+    font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+    flex-shrink: 0;
+  }
+  .step-item.done .step-time { color: var(--green); }
+
+  /* Captures gallery */
+  .captures-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .capture-thumb {
+    position: relative;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: border-color 0.15s;
+    background: #000;
+  }
+  .capture-thumb:hover { border-color: var(--purple-light); }
+  .capture-thumb img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
+  .capture-thumb-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.85));
+    padding: 16px 6px 5px;
+  }
+  .capture-thumb-step { font-size: 10px; font-weight: 700; color: #fff; line-height: 1.2; }
+  .capture-thumb-time { font-family: var(--mono); font-size: 10px; color: rgba(255,255,255,0.6); }
+  .capture-thumb-del {
+    position: absolute; top: 4px; right: 4px;
+    background: rgba(239,68,68,0.8);
+    border: none; border-radius: 4px;
+    color: #fff; font-size: 11px; cursor: pointer;
+    padding: 2px 6px;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .capture-thumb:hover .capture-thumb-del { opacity: 1; }
+  .empty-captures {
+    text-align: center; padding: 32px 16px;
+    color: var(--text-muted); font-size: 13px;
+  }
+  .empty-captures svg { opacity: 0.3; margin-bottom: 8px; }
+
+  /* Metrics panel */
+  .metrics-live { display: flex; flex-direction: column; gap: 10px; }
+  .metric-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .metric-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .metric-value { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--text); }
+  .metric-value.good { color: var(--green); }
+  .metric-value.warn { color: var(--orange); }
+  .metric-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+  .progress-bar-wrap { height: 6px; background: var(--surface2); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--purple); border-radius: 3px; transition: width 0.3s ease; }
+
+  /* ── SCREEN: RESULTS ── */
+  #screen-results {
+    flex-direction: column;
+    padding: 32px;
+    gap: 24px;
+    overflow-y: auto;
+    align-items: center;
+  }
+  .results-header { text-align: center; max-width: 700px; }
+  .results-header h2 { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+  .results-header p { color: var(--text-muted); font-size: 14px; }
+  .results-score {
+    display: flex; gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    width: 100%; max-width: 800px;
+  }
+  .score-card {
+    flex: 1; min-width: 160px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .score-icon { font-size: 28px; margin-bottom: 8px; }
+  .score-number { font-family: var(--mono); font-size: 28px; font-weight: 500; }
+  .score-number.green { color: var(--green); }
+  .score-number.orange { color: var(--orange); }
+  .score-number.red { color: var(--red); }
+  .score-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+  .results-table-wrap { width: 100%; max-width: 860px; overflow-x: auto; }
+  table.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .results-table th {
+    text-align: left; padding: 10px 14px;
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border);
+  }
+  .results-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(91,44,141,0.1);
+    vertical-align: middle;
+  }
+  .results-table tr:last-child td { border-bottom: none; }
+  .results-table tr:hover td { background: rgba(91,44,141,0.05); }
+  .td-step-name { font-weight: 600; }
+  .td-region { color: var(--text-muted); font-size: 12px; }
+  .td-time { font-family: var(--mono); }
+  .td-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .td-status.captured { background: var(--green-bg); color: var(--green); }
+  .td-status.skipped { background: var(--orange-bg); color: var(--orange); }
+  .td-status.missed { background: var(--red-bg); color: var(--red); }
+
+  .results-captures { width: 100%; max-width: 860px; }
+  .results-captures h3 { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+  .results-captures-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .result-thumb { border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: #000; }
+  .result-thumb img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
+  .result-thumb-info { padding: 6px 8px; background: var(--surface); }
+  .result-thumb-step { font-size: 11px; font-weight: 700; color: var(--text); }
+  .result-thumb-time { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+
+  .results-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-export {
+    padding: 12px 28px;
+    background: var(--purple);
+    border: none; border-radius: 8px;
+    color: #fff;
+    font-family: var(--sans); font-size: 14px; font-weight: 700;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn-export:hover { background: var(--purple-light); }
+  .btn-new-session {
+    padding: 12px 28px;
+    background: transparent;
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text-muted);
+    font-family: var(--sans); font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn-new-session:hover { border-color: var(--text); color: var(--text); }
+
+  /* Fullscreen capture viewer */
+  .capture-viewer {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.95); z-index: 200;
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px;
+  }
+  .capture-viewer.open { display: flex; }
+  .capture-viewer img { max-width: 90vw; max-height: 80vh; object-fit: contain; border-radius: 8px; }
+  .capture-viewer-info { color: var(--text-muted); font-size: 13px; text-align: center; }
+  .capture-viewer-close {
+    position: absolute; top: 20px; right: 20px;
+    background: rgba(255,255,255,0.1); border: none;
+    color: #fff; font-size: 20px; width: 36px; height: 36px;
+    border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 10px 20px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    transition: transform 0.25s ease;
+    z-index: 300; white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.green { border-color: var(--green); color: var(--green); }
+  .toast.orange { border-color: var(--orange); color: var(--orange); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-badge">PSE®</div>
+      <div>
+        <div class="logo-title">SISTEMA DE MÉTRICAS ENDOSCÓPICAS</div>
+        <div class="logo-sub">Asociación Argentina de Cirugía — Comisión de Endoscopía Flexible</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="session-info" id="header-session-info" style="display:none">
+        <span id="hdr-participant">—</span> &nbsp;|&nbsp; <span id="hdr-procedure">—</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- SCREEN: SETUP -->
+  <div class="screen active" id="screen-setup">
+    <div class="setup-hero">
+      <h1>PSE Métricas</h1>
+      <p>Sistema de captura de imágenes endoscópicas por pasos.<br>
+      Conectá la torre endoscópica vía HDMI o usá la webcam del simulador PSQ BOX.</p>
+    </div>
+
+    <div class="setup-card">
+      <h2>Datos de la sesión</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Nombre del participante</label>
+          <input type="text" id="inp-name" placeholder="Apellido, Nombre">
+        </div>
+        <div class="form-group">
+          <label>Institución / Sede</label>
+          <input type="text" id="inp-inst" placeholder="Hospital / Centro">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Procedimiento</label>
+          <select id="inp-procedure">
+            <option value="gastroscopia">Gastroscopía reglada (alta)</option>
+            <option value="colonoscopia">Colonoscopía reglada (baja)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Intento #</label>
+          <input type="number" id="inp-attempt" value="1" min="1" max="99">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Fuente de video</label>
+        <div class="camera-preview-wrap">
+          <video id="preview-video" autoplay muted playsinline></video>
+          <div class="camera-placeholder" id="cam-placeholder">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            <span>Sin señal de video</span>
+          </div>
+        </div>
+        <div class="camera-controls">
+          <select id="cam-select" class="camera-source-select">
+            <option value="">Seleccionar cámara…</option>
+          </select>
+          <button class="btn-secondary" onclick="refreshCameras()">↺ Actualizar</button>
+        </div>
+      </div>
+      <button class="btn-primary" id="btn-start" onclick="startSession()" disabled>
+        Iniciar sesión →
+      </button>
+    </div>
+  </div>
+
+  <!-- SCREEN: SESSION -->
+  <div class="screen" id="screen-session">
+    <div class="session-layout">
+
+      <!-- Video panel -->
+      <div class="video-panel">
+        <video id="session-video" autoplay muted playsinline></video>
+        <div class="video-overlay">
+          <div class="video-top-bar">
+            <div class="recording-badge idle" id="rec-badge">
+              <div class="rec-dot"></div>
+              <span id="rec-label">EN ESPERA</span>
+            </div>
+          </div>
+          <div class="step-overlay">
+            <div class="current-step-badge">
+              <div class="step-label">Paso actual — <span id="step-counter">1 / ?</span></div>
+              <div class="step-name" id="current-step-name">—</div>
+              <div class="step-desc" id="current-step-desc">—</div>
+            </div>
+            <div class="timer-badge">
+              <div class="timer-total" id="timer-total">00:00</div>
+              <div class="timer-step">paso: <span id="timer-step">00:00</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="capture-bar">
+          <button class="btn-capture" id="btn-capture" onclick="captureStep()">
+            📷 Capturar este paso <kbd>ESPACIO</kbd>
+          </button>
+          <button class="btn-finish-session" onclick="finishSession()">Finalizar →</button>
+        </div>
+      </div>
+
+      <!-- Right panel -->
+      <div class="right-panel">
+        <div class="panel-tabs">
+          <button class="panel-tab active" onclick="switchTab('steps')">Pasos</button>
+          <button class="panel-tab" onclick="switchTab('captures')">Capturas <span id="cap-count-badge"></span></button>
+          <button class="panel-tab" onclick="switchTab('metrics')">Métricas</button>
+        </div>
+        <div class="panel-content">
+          <div class="tab-pane active" id="tab-steps">
+            <div class="steps-list" id="steps-list"></div>
+          </div>
+          <div class="tab-pane" id="tab-captures">
+            <div id="captures-container">
+              <div class="empty-captures">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+                <p>Aún no hay capturas</p>
+              </div>
+            </div>
+          </div>
+          <div class="tab-pane" id="tab-metrics">
+            <div class="metrics-live" id="metrics-live"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: RESULTS -->
+  <div class="screen" id="screen-results">
+    <div class="results-header">
+      <h2>Resultados de la sesión</h2>
+      <p id="results-subtitle">—</p>
+    </div>
+    <div class="results-score" id="results-score"></div>
+    <div class="results-table-wrap">
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Paso / Landmark</th>
+            <th>Región</th>
+            <th>Tiempo total</th>
+            <th>Tiempo en paso</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="results-tbody"></tbody>
+      </table>
+    </div>
+    <div class="results-captures">
+      <h3>📷 Imágenes capturadas</h3>
+      <div class="results-captures-grid" id="results-captures-grid"></div>
+    </div>
+    <div class="results-actions">
+      <button class="btn-export" onclick="exportReport()">⬇ Exportar reporte (.txt)</button>
+      <button class="btn-new-session" onclick="newSession()">+ Nueva sesión</button>
+    </div>
+  </div>
+
+</div><!-- .app -->
+
+<!-- Capture viewer -->
+<div class="capture-viewer" id="capture-viewer" onclick="closeViewer()">
+  <button class="capture-viewer-close" onclick="closeViewer()">✕</button>
+  <img id="viewer-img" src="" alt="">
+  <div class="capture-viewer-info" id="viewer-info"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<canvas id="snap-canvas" style="display:none"></canvas>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// PASOS DE ENDOSCOPÍA
+// ═══════════════════════════════════════════════════════
+const PROCEDURES = {
+  gastroscopia: {
+    name: "Gastroscopía Reglada",
+    steps: [
+      { id: "intro",     name: "Introducción",           region: "Boca / Faringe",       desc: "Introducción del endoscopio por la boca. Visualización de faringe y paso por cricofaríngeo." },
+      { id: "esofago1",  name: "Esófago superior",       region: "Esófago 1/3 sup.",     desc: "Tercio superior del esófago. Identificar columna de aire, paredes lisas." },
+      { id: "esofago2",  name: "Esófago medio",          region: "Esófago 1/3 med.",     desc: "Tercio medio. Observar mucosa, latidos cardíacos transmitidos." },
+      { id: "uz",        name: "Unión Z (UEG)",          region: "Esofagogástrica",      desc: "Identificar la línea Z / unión esofagogástrica. Documentar nivel y aspecto." },
+      { id: "cardias",   name: "Cardias",                region: "Cardias",              desc: "Paso por cardias. Visualizar la unión en retroflexión posterior." },
+      { id: "fundus",    name: "Fondo gástrico",         region: "Estómago — Fundus",    desc: "Retroflexión gástrica. Visión del fondo y cardias desde adentro." },
+      { id: "cuerpo",    name: "Cuerpo gástrico",        region: "Estómago — Cuerpo",    desc: "Avance por curvatura mayor. Pliegues gástricos, peristalsis." },
+      { id: "angulo",    name: "Ángulo gástrico",        region: "Estómago — Angulo",    desc: "Identificar la incisura angularis. Documentar aspecto de ambas caras." },
+      { id: "antro",     name: "Antro",                  region: "Estómago — Antro",     desc: "Antro prepilórico. Mucosa, peristalsis antral, aspecto del píloro." },
+      { id: "piloro",    name: "Píloro",                 region: "Píloro",               desc: "Visualización y pasaje del píloro. Identificar permeabilidad." },
+      { id: "bulbo",     name: "Bulbo duodenal",         region: "Duodeno — D1",         desc: "Primera porción duodenal. Pliegues de Kerckring, aspecto mucoso." },
+      { id: "d2",        name: "Segunda porción (D2)",   region: "Duodeno — D2",         desc: "Segunda porción. Identificar papila de Vater (mayor y menor si visible)." },
+      { id: "retiro",    name: "Retiro reglado",         region: "Retiro",               desc: "Retiro lento y sistemático inspeccionando todas las paredes. Tiempo ≥ 7 minutos." },
+    ]
+  },
+  colonoscopia: {
+    name: "Colonoscopía Reglada",
+    steps: [
+      { id: "intro",     name: "Introducción",           region: "Ano / Recto distal",   desc: "Introducción por ano. Inspección del canal anal y recto distal. Retroflexión rectal." },
+      { id: "recto",     name: "Recto",                  region: "Recto",                desc: "Inspección completa del recto. Retroflexión rectal para ver el margen anal." },
+      { id: "sigma",     name: "Sigma",                  region: "Colon sigmoide",        desc: "Navegación por sigma. Identificar pliegues, angulaciones, divertículos si presentes." },
+      { id: "desc",      name: "Colon descendente",      region: "Colon descendente",    desc: "Tramo descendente. Luz triangular característica, haustras visibles." },
+      { id: "esp",       name: "Ángulo esplénico",       region: "Flexura esplénica",    desc: "Flexura esplénica: cambio de dirección, identifcar coloración azulada del bazo." },
+      { id: "trans",     name: "Colon transverso",       region: "Transverso",           desc: "Forma triangular de la luz. Navegación hacia flexura hepática." },
+      { id: "hep",       name: "Ángulo hepático",        region: "Flexura hepática",     desc: "Flexura hepática: coloración hepática, cambio de dirección." },
+      { id: "asc",       name: "Colon ascendente",       region: "Colon ascendente",     desc: "Ascendente. Haustras prominentes, luz amplia." },
+      { id: "ciego",     name: "Ciego",                  region: "Ciego",                desc: "Ciego: identificar válvula ileocecal, orificio apendicular. Documentar llegada." },
+      { id: "vaic",      name: "Válvula ileocecal",      region: "Ciego — VAIC",         desc: "Válvula ileocecal. Intubación ileal si posible. Documentar aspecto." },
+      { id: "retiro",    name: "Retiro reglado",         region: "Retiro sistemático",   desc: "Retiro lento con inspección de todos los pliegues. Tiempo ≥ 6 minutos para cada segmento." },
+    ]
+  }
+};
+
+// ═══════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════════════════════════════════
+let state = {
+  stream: null,
+  procedure: null,
+  steps: [],
+  currentStepIdx: 0,
+  sessionStart: null,
+  stepStart: null,
+  timerInterval: null,
+  captures: [],      // { stepIdx, stepId, stepName, timestamp, elapsed, stepElapsed, dataUrl }
+  stepTimes: {},     // stepId -> { elapsed, captured: bool }
+  participantName: '',
+  institution: '',
+  attemptNum: 1,
+  finished: false,
+};
+
+// ═══════════════════════════════════════════════════════
+// CAMERA
+// ═══════════════════════════════════════════════════════
+async function refreshCameras() {
+  try {
+    await navigator.mediaDevices.getUserMedia({ video: true });
+  } catch(e) {}
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const cameras = devices.filter(d => d.kind === 'videoinput');
+  const sel = document.getElementById('cam-select');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">Seleccionar cámara…</option>';
+  cameras.forEach((c, i) => {
+    const opt = document.createElement('option');
+    opt.value = c.deviceId;
+    opt.textContent = c.label || `Cámara ${i+1}`;
+    sel.appendChild(opt);
+  });
+  if (prev && sel.querySelector(`option[value="${prev}"]`)) sel.value = prev;
+  // Auto-select first if only one
+  if (cameras.length === 1) { sel.value = cameras[0].deviceId; selectCamera(cameras[0].deviceId); }
+}
+
+document.getElementById('cam-select').addEventListener('change', e => {
+  if (e.target.value) selectCamera(e.target.value);
+});
+
+async function selectCamera(deviceId) {
+  if (state.stream) { state.stream.getTracks().forEach(t => t.stop()); state.stream = null; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+    });
+    state.stream = stream;
+    const vid = document.getElementById('preview-video');
+    vid.srcObject = stream;
+    document.getElementById('cam-placeholder').style.display = 'none';
+    updateStartButton();
+  } catch(e) {
+    showToast('No se pudo acceder a la cámara', 'orange');
+  }
+}
+
+function updateStartButton() {
+  const name = document.getElementById('inp-name').value.trim();
+  const hasCam = !!state.stream;
+  document.getElementById('btn-start').disabled = !(name && hasCam);
+}
+
+document.getElementById('inp-name').addEventListener('input', updateStartButton);
+
+// ═══════════════════════════════════════════════════════
+// SESSION START
+// ═══════════════════════════════════════════════════════
+function startSession() {
+  const procKey = document.getElementById('inp-procedure').value;
+  state.procedure = PROCEDURES[procKey];
+  state.steps = state.procedure.steps;
+  state.participantName = document.getElementById('inp-name').value.trim();
+  state.institution = document.getElementById('inp-inst').value.trim() || 'Sin especificar';
+  state.attemptNum = parseInt(document.getElementById('inp-attempt').value) || 1;
+  state.currentStepIdx = 0;
+  state.captures = [];
+  state.stepTimes = {};
+  state.finished = false;
+
+  // Attach stream to session video
+  const sv = document.getElementById('session-video');
+  sv.srcObject = state.stream;
+
+  // Header info
+  document.getElementById('hdr-participant').textContent = state.participantName;
+  document.getElementById('hdr-procedure').textContent = state.procedure.name;
+  document.getElementById('header-session-info').style.display = '';
+
+  // Build steps list
+  renderStepsList();
+  renderMetricsLive();
+
+  // Start timers
+  state.sessionStart = Date.now();
+  state.stepStart = Date.now();
+  state.timerInterval = setInterval(updateTimers, 200);
+
+  // Update recording badge
+  const rb = document.getElementById('rec-badge');
+  rb.className = 'recording-badge';
+  document.getElementById('rec-label').textContent = 'EN SESIÓN';
+
+  updateCurrentStepUI();
+  switchScreen('session');
+
+  // Keyboard shortcut
+  document.addEventListener('keydown', onKeyDown);
+}
+
+function onKeyDown(e) {
+  if (e.code === 'Space' && !e.repeat) {
+    e.preventDefault();
+    captureStep();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER STEPS
+// ═══════════════════════════════════════════════════════
+function renderStepsList() {
+  const list = document.getElementById('steps-list');
+  list.innerHTML = '';
+  state.steps.forEach((step, i) => {
+    const div = document.createElement('div');
+    div.className = 'step-item pending';
+    div.id = `step-item-${i}`;
+    div.innerHTML = `
+      <div class="step-num">${i+1}</div>
+      <div class="step-info">
+        <div class="step-info-name">${step.name}</div>
+        <div class="step-info-region">${step.region}</div>
+      </div>
+      <div class="step-time" id="step-time-${i}">—</div>
+    `;
+    list.appendChild(div);
+  });
+  updateStepsUI();
+}
+
+function updateStepsUI() {
+  state.steps.forEach((step, i) => {
+    const el = document.getElementById(`step-item-${i}`);
+    if (!el) return;
+    if (i < state.currentStepIdx) {
+      el.className = 'step-item done';
+    } else if (i === state.currentStepIdx) {
+      el.className = 'step-item current';
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      el.className = 'step-item pending';
+    }
+  });
+}
+
+function updateCurrentStepUI() {
+  const step = state.steps[state.currentStepIdx];
+  if (!step) return;
+  document.getElementById('current-step-name').textContent = step.name;
+  document.getElementById('current-step-desc').textContent = step.desc;
+  document.getElementById('step-counter').textContent = `${state.currentStepIdx + 1} / ${state.steps.length}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// TIMERS
+// ═══════════════════════════════════════════════════════
+function updateTimers() {
+  const totalMs = Date.now() - state.sessionStart;
+  const stepMs  = Date.now() - state.stepStart;
+  document.getElementById('timer-total').textContent = formatTime(totalMs);
+  document.getElementById('timer-step').textContent  = formatTime(stepMs);
+  renderMetricsLive();
+}
+
+function formatTime(ms) {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const ss = s % 60;
+  return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// CAPTURE
+// ═══════════════════════════════════════════════════════
+function captureStep() {
+  if (state.finished) return;
+  const step = state.steps[state.currentStepIdx];
+  if (!step) return;
+
+  const totalElapsed = Date.now() - state.sessionStart;
+  const stepElapsed  = Date.now() - state.stepStart;
+
+  // Snapshot from video
+  const video  = document.getElementById('session-video');
+  const canvas = document.getElementById('snap-canvas');
+  canvas.width  = video.videoWidth  || 1280;
+  canvas.height = video.videoHeight || 720;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  // Overlay: step name + time
+  ctx.fillStyle = 'rgba(91,44,141,0.75)';
+  ctx.fillRect(0, canvas.height - 44, canvas.width, 44);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${Math.round(canvas.height * 0.028)}px Arial`;
+  ctx.fillText(`${step.name} — ${step.region}`, 14, canvas.height - 24);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = `${Math.round(canvas.height * 0.022)}px monospace`;
+  ctx.fillText(`Total: ${formatTime(totalElapsed)}  |  Paso: ${formatTime(stepElapsed)}`, 14, canvas.height - 8);
+
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+  const capture = {
+    stepIdx: state.currentStepIdx,
+    stepId:  step.id,
+    stepName: step.name,
+    region: step.region,
+    timestamp: new Date().toLocaleTimeString(),
+    elapsed: totalElapsed,
+    stepElapsed: stepElapsed,
+    dataUrl
+  };
+  state.captures.push(capture);
+  state.stepTimes[step.id] = { elapsed: totalElapsed, stepElapsed, captured: true };
+
+  // Flash button
+  const btn = document.getElementById('btn-capture');
+  btn.classList.add('success');
+  setTimeout(() => btn.classList.remove('success'), 300);
+
+  // Update step time display
+  const stEl = document.getElementById(`step-time-${state.currentStepIdx}`);
+  if (stEl) stEl.textContent = formatTime(stepElapsed);
+
+  // Advance
+  state.currentStepIdx++;
+  state.stepStart = Date.now();
+
+  if (state.currentStepIdx >= state.steps.length) {
+    showToast('✅ Último paso capturado', 'green');
+    setTimeout(finishSession, 600);
+  } else {
+    showToast(`✓ ${step.name}`, 'green');
+    updateCurrentStepUI();
+    updateStepsUI();
+  }
+
+  renderCapturesTab();
+  updateCapBadge();
+  renderMetricsLive();
+}
+
+function renderCapturesTab() {
+  const cont = document.getElementById('captures-container');
+  if (state.captures.length === 0) {
+    cont.innerHTML = `<div class="empty-captures"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><p>Aún no hay capturas</p></div>`;
+    return;
+  }
+  cont.innerHTML = `<div class="captures-grid">${state.captures.map((c,i) => `
+    <div class="capture-thumb" onclick="openViewer(${i})">
+      <img src="${c.dataUrl}" alt="${c.stepName}">
+      <div class="capture-thumb-label">
+        <div class="capture-thumb-step">${c.stepName}</div>
+        <div class="capture-thumb-time">${formatTime(c.stepElapsed)}</div>
+      </div>
+      <button class="capture-thumb-del" onclick="event.stopPropagation();deleteCapture(${i})">✕</button>
+    </div>
+  `).join('')}</div>`;
+}
+
+function deleteCapture(idx) {
+  state.captures.splice(idx, 1);
+  renderCapturesTab();
+  updateCapBadge();
+}
+
+function updateCapBadge() {
+  const b = document.getElementById('cap-count-badge');
+  b.textContent = state.captures.length > 0 ? `(${state.captures.length})` : '';
+}
+
+// ═══════════════════════════════════════════════════════
+// METRICS LIVE
+// ═══════════════════════════════════════════════════════
+function renderMetricsLive() {
+  const cont = document.getElementById('metrics-live');
+  const totalMs = Date.now() - (state.sessionStart || Date.now());
+  const captured = state.captures.length;
+  const totalSteps = state.steps.length;
+  const pct = Math.round((captured / totalSteps) * 100);
+  const stepMs = Date.now() - (state.stepStart || Date.now());
+
+  cont.innerHTML = `
+    <div class="metric-card">
+      <div class="metric-label">Tiempo total de sesión</div>
+      <div class="metric-value">${formatTime(totalMs)}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Tiempo en paso actual</div>
+      <div class="metric-value ${stepMs > 120000 ? 'warn' : ''}">${formatTime(stepMs)}</div>
+      <div class="metric-sub">${state.steps[state.currentStepIdx]?.name || 'Sesión finalizada'}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Pasos capturados</div>
+      <div class="metric-value ${captured === totalSteps ? 'good' : ''}">${captured} / ${totalSteps}</div>
+      <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">% completitud</div>
+      <div class="metric-value ${pct === 100 ? 'good' : pct >= 70 ? '' : 'warn'}">${pct}%</div>
+    </div>
+    ${state.captures.length > 0 ? `
+    <div class="metric-card">
+      <div class="metric-label">Tiempo promedio por paso</div>
+      <div class="metric-value">${formatTime(Math.round(totalMs / Math.max(captured,1)))}</div>
+    </div>` : ''}
+  `;
+}
+
+// ═══════════════════════════════════════════════════════
+// FINISH SESSION
+// ═══════════════════════════════════════════════════════
+function finishSession() {
+  state.finished = true;
+  clearInterval(state.timerInterval);
+  document.removeEventListener('keydown', onKeyDown);
+
+  const rb = document.getElementById('rec-badge');
+  rb.className = 'recording-badge idle';
+  document.getElementById('rec-label').textContent = 'FINALIZADO';
+
+  buildResults();
+  switchScreen('results');
+}
+
+function buildResults() {
+  const totalMs = Date.now() - state.sessionStart;
+  const captured = state.captures.length;
+  const totalSteps = state.steps.length;
+  const missed = totalSteps - captured;
+  const pct = Math.round((captured / totalSteps) * 100);
+
+  document.getElementById('results-subtitle').textContent =
+    `${state.participantName} — ${state.institution} — ${state.procedure.name} — Intento #${state.attemptNum} — ${new Date().toLocaleDateString('es-AR')}`;
+
+  // Score cards
+  document.getElementById('results-score').innerHTML = `
+    <div class="score-card"><div class="score-icon">⏱</div><div class="score-number">${formatTime(totalMs)}</div><div class="score-label">Tiempo total</div></div>
+    <div class="score-card"><div class="score-icon">📷</div><div class="score-number green">${captured}</div><div class="score-label">Pasos capturados</div></div>
+    <div class="score-card"><div class="score-icon">✅</div><div class="score-number ${pct===100?'green':pct>=70?'orange':'red'}">${pct}%</div><div class="score-label">Completitud</div></div>
+    <div class="score-card"><div class="score-icon">⚠️</div><div class="score-number ${missed===0?'green':missed<=2?'orange':'red'}">${missed}</div><div class="score-label">Pasos omitidos</div></div>
+  `;
+
+  // Table
+  const tbody = document.getElementById('results-tbody');
+  tbody.innerHTML = '';
+  state.steps.forEach((step, i) => {
+    const cap = state.captures.find(c => c.stepIdx === i);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td class="td-step-name">${step.name}</td>
+      <td class="td-region">${step.region}</td>
+      <td class="td-time">${cap ? formatTime(cap.elapsed) : '—'}</td>
+      <td class="td-time">${cap ? formatTime(cap.stepElapsed) : '—'}</td>
+      <td><span class="td-status ${cap ? 'captured' : 'missed'}">${cap ? '✓ Capturado' : '✗ Omitido'}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Captures grid
+  const cg = document.getElementById('results-captures-grid');
+  cg.innerHTML = state.captures.map((c,i) => `
+    <div class="result-thumb" onclick="openViewer(${i})" style="cursor:pointer">
+      <img src="${c.dataUrl}" alt="${c.stepName}">
+      <div class="result-thumb-info">
+        <div class="result-thumb-step">${c.stepName}</div>
+        <div class="result-thumb-time">${formatTime(c.stepElapsed)} en paso · total ${formatTime(c.elapsed)}</div>
+      </div>
+    </div>
+  `).join('') || '<p style="color:var(--text-muted);font-size:13px">Sin imágenes capturadas.</p>';
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════
+function exportReport() {
+  const totalMs = Date.now() - state.sessionStart;
+  let txt = `REPORTE PSE — SISTEMA DE MÉTRICAS ENDOSCÓPICAS\n`;
+  txt += `Asociación Argentina de Cirugía — Comisión de Endoscopía Flexible\n`;
+  txt += `${'─'.repeat(60)}\n\n`;
+  txt += `Participante: ${state.participantName}\n`;
+  txt += `Institución:  ${state.institution}\n`;
+  txt += `Procedimiento: ${state.procedure.name}\n`;
+  txt += `Intento #:    ${state.attemptNum}\n`;
+  txt += `Fecha:        ${new Date().toLocaleDateString('es-AR')}\n`;
+  txt += `Hora:         ${new Date().toLocaleTimeString('es-AR')}\n\n`;
+  txt += `${'─'.repeat(60)}\n`;
+  txt += `RESUMEN\n${'─'.repeat(60)}\n`;
+  txt += `Tiempo total:     ${formatTime(totalMs)}\n`;
+  txt += `Pasos totales:    ${state.steps.length}\n`;
+  txt += `Pasos capturados: ${state.captures.length}\n`;
+  txt += `Pasos omitidos:   ${state.steps.length - state.captures.length}\n`;
+  txt += `Completitud:      ${Math.round((state.captures.length / state.steps.length)*100)}%\n\n`;
+  txt += `${'─'.repeat(60)}\n`;
+  txt += `DETALLE POR PASO\n${'─'.repeat(60)}\n`;
+  state.steps.forEach((step, i) => {
+    const cap = state.captures.find(c => c.stepIdx === i);
+    const status = cap ? '✓ CAPTURADO' : '✗ OMITIDO';
+    const t1 = cap ? formatTime(cap.elapsed) : '—';
+    const t2 = cap ? formatTime(cap.stepElapsed) : '—';
+    txt += `${String(i+1).padStart(2,' ')}. ${step.name.padEnd(28,' ')} ${status.padEnd(14,' ')} Total: ${t1}  Paso: ${t2}\n`;
+  });
+  txt += `\n${'─'.repeat(60)}\nGenerado por PSE Métricas v1.0\n`;
+
+  const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `PSE_${state.participantName.replace(/\s+/g,'_')}_intento${state.attemptNum}_${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════
+// VIEWER
+// ═══════════════════════════════════════════════════════
+function openViewer(idx) {
+  const c = state.captures[idx];
+  if (!c) return;
+  document.getElementById('viewer-img').src = c.dataUrl;
+  document.getElementById('viewer-info').textContent =
+    `${c.stepName} — ${c.region}  |  Total: ${formatTime(c.elapsed)}  |  En paso: ${formatTime(c.stepElapsed)}`;
+  document.getElementById('capture-viewer').classList.add('open');
+}
+function closeViewer() {
+  document.getElementById('capture-viewer').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════
+function switchScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${id}`).classList.add('active');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.panel-tab[onclick="switchTab('${name}')"]`).classList.add('active');
+  document.getElementById(`tab-${name}`).classList.add('active');
+}
+
+function newSession() {
+  if (state.stream) { state.stream.getTracks().forEach(t => t.stop()); state.stream = null; }
+  state = { stream: null, procedure: null, steps: [], currentStepIdx: 0,
+    sessionStart: null, stepStart: null, timerInterval: null,
+    captures: [], stepTimes: {}, participantName: '', institution: '', attemptNum: 1, finished: false };
+  document.getElementById('header-session-info').style.display = 'none';
+  document.getElementById('cam-placeholder').style.display = '';
+  document.getElementById('preview-video').srcObject = null;
+  document.getElementById('inp-name').value = '';
+  document.getElementById('inp-inst').value = '';
+  document.getElementById('cam-select').value = '';
+  document.getElementById('btn-start').disabled = true;
+  switchScreen('setup');
+  refreshCameras();
+}
+
+let toastTimeout;
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => { t.className = `toast ${type}`; }, 2000);
+}
+
+// ─── INIT ───
+refreshCameras();
+</script>
+</body>
+</html>
